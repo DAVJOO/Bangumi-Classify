@@ -1,0 +1,530 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bangumi 自动分类工具</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,"Microsoft YaHei",sans-serif;background:#f0f2f5;color:#1f2937;display:flex;height:100vh;overflow:hidden}
+.sidebar{width:240px;background:#fff;border-right:1px solid #e5e7eb;display:flex;flex-direction:column;flex-shrink:0}
+.sidebar-header{padding:20px;border-bottom:1px solid #f3f4f6}
+.sidebar-header h1{font-size:17px;font-weight:700;color:#6366f1}
+.sidebar-header .ver{font-size:12px;color:#9ca3af;margin-top:4px}
+.sidebar-nav{flex:1;padding:12px 0;overflow-y:auto}
+.nav-item{display:flex;align-items:center;padding:10px 20px;color:#6b7280;cursor:pointer;transition:all .15s;font-size:14px;border-left:3px solid transparent}
+.nav-item:hover{background:#f9fafb;color:#374151}
+.nav-item.active{color:#6366f1;background:#ede9fe;border-left-color:#6366f1;font-weight:500}
+.nav-item .icon{width:20px;margin-right:12px;text-align:center;font-size:15px}
+.nav-section{padding:16px 20px 6px;font-size:11px;color:#9ca3af;text-transform:uppercase;letter-spacing:1px;font-weight:600}
+.sidebar-footer{padding:14px 20px;border-top:1px solid #f3f4f6;font-size:12px;display:flex;align-items:center;gap:8px}
+.dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.dot-green{background:#10b981}.dot-red{background:#ef4444}.dot-gray{background:#9ca3af}
+.main{flex:1;display:flex;flex-direction:column;overflow:hidden;min-width:0}
+.topbar{height:56px;background:#fff;border-bottom:1px solid #e5e7eb;display:flex;align-items:center;justify-content:space-between;padding:0 28px;flex-shrink:0}
+.topbar h2{font-size:17px;font-weight:600}
+.topbar-right{display:flex;gap:10px}
+.btn{padding:8px 18px;border-radius:8px;border:none;cursor:pointer;font-size:13px;font-weight:500;transition:all .15s;display:inline-flex;align-items:center;gap:6px}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.btn-p{background:#6366f1;color:#fff}.btn-p:hover:not(:disabled){background:#4f46e5}
+.btn-s{background:#fff;color:#374151;border:1px solid #d1d5db}.btn-s:hover:not(:disabled){background:#f9fafb}
+.btn-g{background:#10b981;color:#fff}.btn-g:hover:not(:disabled){background:#059669}
+.btn-sm{padding:5px 12px;font-size:12px}
+.content{flex:1;overflow-y:auto;padding:24px 28px}
+.page{display:none}.page.active{display:block}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:24px}
+.sc{background:#fff;border-radius:12px;padding:20px;border:1px solid #e5e7eb}
+.sc .label{font-size:12px;color:#6b7280;margin-bottom:8px}
+.sc .value{font-size:28px;font-weight:700}
+.sc .value.b{color:#6366f1}.sc .value.g{color:#10b981}.sc .value.y{color:#f59e0b}.sc .value.r{color:#ef4444}
+.panel{background:#fff;border-radius:12px;border:1px solid #e5e7eb;margin-bottom:20px;overflow:hidden}
+.ph{padding:16px 20px;border-bottom:1px solid #f3f4f6;display:flex;justify-content:space-between;align-items:center}
+.ph h3{font-size:14px;font-weight:600}
+.ph .actions{display:flex;gap:8px}
+.ri{display:flex;align-items:center;padding:12px 20px;border-bottom:1px solid #f9fafb;transition:background .1s}
+.ri:hover{background:#fafbfc}.ri:last-child{border-bottom:none}
+.tg{width:40px;height:22px;background:#d1d5db;border-radius:11px;position:relative;cursor:pointer;flex-shrink:0;transition:background .2s}
+.tg.on{background:#6366f1}
+.tg::after{content:"";position:absolute;width:18px;height:18px;background:#fff;border-radius:50%;top:2px;left:2px;transition:transform .2s;box-shadow:0 1px 2px rgba(0,0,0,.15)}
+.tg.on::after{transform:translateX(18px)}
+.rn{flex:1;font-size:14px;font-weight:500;margin-left:16px}
+.tag{font-size:11px;padding:3px 10px;border-radius:20px;font-weight:500;flex-shrink:0;margin-left:12px}
+.tag-cr{background:#fef3c7;color:#92400e}.tag-baha{background:#dbeafe;color:#1e40af}
+.tag-lh{background:#ede9fe;color:#5b21b6}.tag-cf{background:#d1fae5;color:#065f46}
+.rss-item{display:flex;align-items:center;padding:10px 20px;border-bottom:1px solid #f9fafb}
+.rss-item:last-child{border-bottom:none}
+.dot-sm{width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;margin-right:12px;font-size:11px;color:#fff;flex-shrink:0}
+.dot-sm.h{background:#10b981}.dot-sm.m{background:#ef4444}
+.rss-text{flex:1;font-size:13px}
+.log-area{background:#1e1e2e;border-radius:8px;padding:16px;font-family:monospace;font-size:12px;line-height:1.7;max-height:300px;overflow-y:auto;color:#c4b5fd}
+.log-area .t{color:#6366f1}.log-area .ok{color:#34d399}.log-area .w{color:#fbbf24}.log-area .i{color:#93c5fd}.log-area .e{color:#f87171}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+.empty{text-align:center;padding:40px;color:#9ca3af}
+.empty .icon{font-size:48px;margin-bottom:12px}
+.spinner{display:inline-block;width:14px;height:14px;border:2px solid #d1d5db;border-top-color:#6366f1;border-radius:50%;animation:spin .6s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.modal-overlay{display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.4);z-index:100;align-items:center;justify-content:center}
+.modal-overlay.show{display:flex}
+.modal{background:#fff;border-radius:12px;padding:24px;width:500px;max-width:90vw}
+.modal h3{font-size:16px;margin-bottom:16px}
+.modal input{padding:8px 12px;border:1px solid #d1d5db;border-radius:6px;font-size:13px}
+.modal .btns{display:flex;gap:10px;justify-content:flex-end;margin-top:16px}
+#fs-browse-list .ri:hover{background:#ede9fe;border-radius:6px}
+</style>
+</head>
+<body>
+<div class="sidebar">
+  <div class="sidebar-header"><h1>Bangumi 自动分类</h1><div class="ver">v2.0.0</div></div>
+  <div class="sidebar-nav">
+    <div class="nav-section">功能</div>
+    <div class="nav-item active" data-page="rules"><span class="icon">&#128203;</span>规则管理</div>
+    <div class="nav-item" data-page="rss"><span class="icon">&#128225;</span>RSS 分析</div>
+    <div class="nav-item" data-page="diff"><span class="icon">&#128269;</span>差异检测</div>
+    <div class="nav-item" data-page="auto"><span class="icon">&#9889;</span>一键自动化</div>
+    <div class="nav-section">qBittorrent</div>
+    <div class="nav-item" data-page="qb"><span class="icon">&#128202;</span>状态监控</div>
+    <div class="nav-section">设置</div>
+    <div class="nav-item" data-page="settings"><span class="icon">&#9881;</span>设置</div>
+  </div>
+  <div class="sidebar-footer" id="conn-status"><div class="dot dot-gray"></div><span>加载中...</span></div>
+</div>
+<div class="main">
+  <div class="topbar"><h2 id="page-title">规则管理</h2><div class="topbar-right"><button class="btn btn-s" onclick="refreshRSS()">&#128260; 刷新 RSS</button><button class="btn btn-g" onclick="runAuto()">&#9889; 一键自动化</button></div></div>
+  <div class="content">
+    <div class="page active" id="page-rules">
+      <div class="stats">
+        <div class="sc"><div class="label">规则数</div><div class="value b" id="stat-rules">-</div></div>
+        <div class="sc"><div class="label">已启用</div><div class="value g" id="stat-enabled">-</div></div>
+        <div class="sc"><div class="label">RSS 条目</div><div class="value y" id="stat-rss">-</div></div>
+        <div class="sc"><div class="label">未覆盖</div><div class="value r" id="stat-uncovered">-</div></div>
+      </div>
+      <div class="panel"><div class="ph"><h3>当前规则</h3><div class="actions"><button class="btn btn-s btn-sm" onclick="generateRules()">生成规则</button><button class="btn btn-p btn-sm" onclick="importRules()">导入 qB</button></div></div><div id="rules-list"><div class="empty"><div class="icon">&#128203;</div><div>加载中...</div></div></div></div>
+    </div>
+    <div class="page" id="page-rss"><div class="two"><div class="panel"><div class="ph"><h3>匹配分析</h3><button class="btn btn-s btn-sm" onclick="analyzeRSS()">分析</button></div><div id="rss-hit-list"><div class="empty"><div class="icon">&#128225;</div><div>点击分析按钮开始</div></div></div></div><div class="panel"><div class="ph"><h3>操作日志</h3><button class="btn btn-s btn-sm" onclick="clearLog()">清空</button></div><div style="padding:12px"><div class="log-area" id="log-area"><div style="color:#6366f1">等待操作...</div></div></div></div></div></div>
+    <div class="page" id="page-diff"><div class="panel"><div class="ph"><h3>差异检测</h3><button class="btn btn-s btn-sm" onclick="loadDiff()">检测差异</button></div><div id="diff-list"><div class="empty"><div class="icon">&#128269;</div><div>点击检测按钮开始</div></div></div></div></div>
+    <div class="page" id="page-auto"><div class="panel"><div class="ph"><h3>一键自动化流程</h3><button class="btn btn-g" onclick="runAuto()" id="auto-btn">&#9889; 开始自动化</button></div><div style="padding:20px"><div style="display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:24px"><div class="sc" id="auto-step-1"><div class="label">1. 刷新 RSS</div><div class="value" style="font-size:20px;color:#9ca3af">&#9711;</div></div><div class="sc" id="auto-step-2"><div class="label">2. 检测差异</div><div class="value" style="font-size:20px;color:#9ca3af">&#9711;</div></div><div class="sc" id="auto-step-3"><div class="label">3. 生成规则</div><div class="value" style="font-size:20px;color:#9ca3af">&#9711;</div></div><div class="sc" id="auto-step-4"><div class="label">4. 导入并启用</div><div class="value" style="font-size:20px;color:#9ca3af">&#9711;</div></div></div><div class="log-area" id="auto-log"><div style="color:#6366f1">等待操作...</div></div></div></div></div>
+    <div class="page" id="page-qb"><div class="stats"><div class="sc"><div class="label">连接状态</div><div class="value" id="qb-connected" style="font-size:20px">-</div></div><div class="sc"><div class="label">qB 规则数</div><div class="value b" id="qb-rules">-</div></div><div class="sc"><div class="label">种子数</div><div class="value g" id="qb-torrents">-</div></div><div class="sc"><div class="label">保存路径</div><div class="value" id="qb-path" style="font-size:14px;word-break:break-all">-</div></div></div><div class="panel"><div class="ph"><h3>操作</h3></div><div style="padding:20px;display:flex;gap:12px"><button class="btn btn-s" onclick="syncFromQB()">&#128260; 从 qB 同步规则</button><button class="btn btn-s" onclick="importRules()">&#128229; 导入规则到 qB</button><button class="btn btn-p" onclick="enableRules()">&#9654; 启用规则开始下载</button></div></div></div>
+    <div class="page" id="page-settings"><div class="panel"><div class="ph"><h3>设置</h3></div><div style="padding:20px"><div style="margin-bottom:20px"><div style="font-size:13px;color:#6b7280;margin-bottom:6px">当前 Windows 路径</div><div id="current-win-path" style="font-size:14px;font-family:monospace;background:#f9fafb;padding:10px 14px;border-radius:8px;border:1px solid #e5e7eb">-</div></div><div style="display:flex;gap:12px"><button class="btn btn-s" onclick="showPathModal('change')">&#128193; 更改路径（仅未来下载）</button><button class="btn btn-p" onclick="showPathModal('migrate')">&#128193; 更改路径并迁移</button></div></div></div>
+<div class="panel" style="margin-top:16px"><div class="ph"><h3>Config Settings</h3></div><div style="padding:20px">
+<div id="config-fields" style="font-size:13px;color:#6b7280">Loading...</div>
+<div style="margin-top:14px"><button class="btn btn-p" onclick="saveConfig()">Save Config</button></div>
+</div></div>
+</div>
+</div>
+<div class="modal-overlay" id="path-modal"><div class="modal" style="width:640px">
+<h3 id="path-modal-title">更改路径</h3>
+<div style="font-size:13px;color:#6b7280;margin-bottom:6px">当前路径</div>
+<div id="modal-old-path" style="font-size:13px;font-family:monospace;margin-bottom:14px;padding:8px 12px;background:#f9fafb;border-radius:6px;border:1px solid #e5e7eb">-</div>
+<div style="font-size:13px;color:#6b7280;margin-bottom:6px">新路径</div>
+<div style="display:flex;gap:8px;margin-bottom:12px">
+  <input type="text" id="new-path-input" placeholder="手动输入完整路径，如 E:\动漫\2026" style="flex:1;padding:8px 12px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;font-family:monospace" oninput="onPathInputChange()">
+  <button class="btn btn-s" onclick="onPathInputConfirm()" id="path-input-btn" style="white-space:nowrap" disabled>使用此路径</button>
+</div>
+<div style="font-size:12px;color:#9ca3af;margin-bottom:8px;text-align:center">或在下方文件夹浏览器中选择</div>
+<div id="fs-browse-current" style="font-size:13px;font-family:monospace;padding:6px 10px;background:#ede9fe;border-radius:6px;margin-bottom:8px;color:#6366f1;min-height:24px;cursor:pointer" onclick="browseFs('')">点击选择磁盘</div>
+<div id="fs-browse-list" style="max-height:220px;overflow-y:auto;border:1px solid #e5e7eb;border-radius:6px;margin-bottom:14px"></div>
+<div class="btns">
+  <button class="btn btn-s" onclick="closePathModal()">取消</button>
+  <button class="btn btn-p" id="path-confirm-btn" onclick="doPathAction()" disabled>确认</button>
+</div>
+</div></div>
+
+<script>
+
+var currentPage = 'rules';
+
+document.querySelectorAll('.nav-item').forEach(function(item) {
+  item.addEventListener('click', function() {
+    var p = item.dataset.page;
+    if (!p) return;
+    switchPage(p);
+  });
+});
+
+function switchPage(p) {
+  currentPage = p;
+  document.querySelectorAll('.nav-item').forEach(function(n) { n.classList.remove('active'); });
+  var target = document.querySelector('.nav-item[data-page="' + p + '"]');
+  if (target) target.classList.add('active');
+  document.querySelectorAll('.page').forEach(function(pg) { pg.classList.remove('active'); });
+  var pageEl = document.getElementById('page-' + p);
+  if (pageEl) pageEl.classList.add('active');
+  var titles = {
+    rules: '规则管理',
+    rss: 'RSS 分析',
+    diff: '差异检测',
+    auto: '一键自动化',
+    qb: '状态监控',
+    settings: '路径管理'
+  };
+  document.getElementById('page-title').textContent = titles[p] || p;
+  if (p === 'rules') loadRules();
+  if (p === 'qb') loadQBStatus();
+  if (p === 'settings') loadStatus();
+}
+
+function api(path, opts) {
+  opts = opts || {};
+  return fetch('/api' + path, {
+    method: opts.method || 'GET',
+    headers: opts.body ? { 'Content-Type': 'application/json' } : {},
+    body: opts.body ? JSON.stringify(opts.body) : undefined
+  }).then(function(r) {
+    return r.json();
+  }).catch(function(e) {
+    console.error('API Error:', path, e);
+    addLog('请求失败: ' + e.message, 'e');
+    return null;
+  });
+}
+
+function loadRules() {
+  api('/rules').then(function(d) {
+    if (!d) return;
+    var el = document.getElementById('rules-list');
+    if (!d.rules || !d.rules.length) {
+      el.innerHTML = '<div class="empty"><div class="icon">&#128203;</div><div>暂无规则</div></div>';
+      return;
+    }
+    var html = '';
+    d.rules.forEach(function(r) {
+      var tag = getTag(r.name);
+      html += '<div class="ri"><div class="tg ' + (r.enabled ? 'on' : '') + '" onclick="toggleRule(this)" data-name="' + esc(r.name) + '"></div><div class="rn">' + esc(r.name) + '</div><span class="tag ' + tag.cls + '">' + tag.label + '</span></div>';
+    });
+    el.innerHTML = html;
+  });
+}
+
+function toggleRule(el) {
+  var name = el.dataset.name;
+  api('/rules/toggle/' + encodeURIComponent(name), { method: 'POST' }).then(function() { loadRules(); });
+}
+
+function getTag(n) {
+  if (/LoliHouse/.test(n)) return { cls: 'tag-lh', label: 'LoliHouse' };
+  if (/喵萌/.test(n)) return { cls: 'tag-lh', label: '喵萌奶茶屋' };
+  if (/绿茶/.test(n)) return { cls: 'tag-cf', label: '绿茶字幕组' };
+  if (/CR/.test(n)) return { cls: 'tag-cr', label: 'CR' };
+  if (/Baha/.test(n)) return { cls: 'tag-baha', label: 'Baha' };
+  if (/ABEMA/.test(n)) return { cls: 'tag-cr', label: 'ABEMA' };
+  if (/B-Global/.test(n)) return { cls: 'tag-baha', label: 'B-Global' };
+  if (/雪飘/.test(n)) return { cls: 'tag-cf', label: '雪飘工作室' };
+  if (/桜都/.test(n)) return { cls: 'tag-cf', label: '桜都字幕组' };
+  if (/猎户/.test(n)) return { cls: 'tag-cf', label: '猎户压制部' };
+  if (/沸班/.test(n)) return { cls: 'tag-cf', label: '沸班亚马制作组' };
+  return { cls: 'tag-cf', label: '其他' };
+}
+
+function loadStatus() {
+  api('/status').then(function(d) {
+    if (!d) return;
+    document.getElementById('stat-rules').textContent = d.rule_count;
+    document.getElementById('stat-enabled').textContent = d.enabled_count;
+    document.getElementById('current-win-path').textContent = d.save_path;
+    document.getElementById('qb-path').textContent = d.save_path;
+    return api('/qb/status');
+  }).then(function(qb) {
+    var el = document.getElementById('conn-status');
+    if (qb && qb.connected) {
+      el.innerHTML = '<div class="dot dot-green"></div><span>qB: 已连接</span>';
+    } else {
+      el.innerHTML = '<div class="dot dot-red"></div><span>qB: 未连接</span>';
+    }
+    return api('/rss/items');
+  }).then(function(rss) {
+    if (rss) document.getElementById('stat-rss').textContent = rss.total;
+    return api('/rss/diff');
+  }).then(function(diff) {
+    if (diff) document.getElementById('stat-uncovered').textContent = diff.total;
+  });
+}
+
+function refreshRSS() {
+  addLog('正在刷新 RSS...', 'i');
+  api('/rss/refresh', { method: 'POST' }).then(function(d) {
+    if (d && d.ok) { addLog('刷新完成！', 'ok'); loadStatus(); }
+    else { addLog('刷新失败', 'e'); }
+  });
+}
+
+function analyzeRSS() {
+  addLog('正在分析 RSS...', 'i');
+  api('/rss/analyze').then(function(d) {
+    if (!d) return;
+    var el = document.getElementById('rss-hit-list');
+    var html = '';
+    if (d.hit_rules) d.hit_rules.forEach(function(r) {
+      html += '<div class="rss-item"><div class="dot-sm h">&#10003;</div><div class="rss-text">' + esc(r.name) + ' <span style="color:#9ca3af;font-size:12px">(' + r.count + ')</span></div></div>';
+    });
+    if (d.uncovered) d.uncovered.forEach(function(u) {
+      html += '<div class="rss-item"><div class="dot-sm m">&#10007;</div><div class="rss-text">' + esc(u.anime) + ' [' + u.source + '] <span style="color:#ef4444;font-size:12px">未覆盖</span></div></div>';
+    });
+    el.innerHTML = html || '<div class="empty"><div class="icon">&#9989;</div><div>全部已覆盖！</div></div>';
+  });
+}
+
+function loadDiff() {
+  addLog('正在检测差异...', 'i');
+  api('/rss/diff').then(function(d) {
+    if (!d) return;
+    var el = document.getElementById('diff-list');
+    if (!d.uncovered || !d.uncovered.length) {
+      el.innerHTML = '<div class="empty"><div class="icon">&#9989;</div><div>全部已覆盖，无未匹配番剧</div></div>';
+      addLog('全部已覆盖', 'ok');
+      return;
+    }
+    var html = '';
+    d.uncovered.forEach(function(u) {
+      html += '<div class="rss-item"><div class="dot-sm m">&#10007;</div><div class="rss-text">' + esc(u.anime) + ' [' + u.source + '] <span style="color:#ef4444;font-size:12px">' + u.count + ' 条</span></div></div>';
+    });
+    el.innerHTML = html;
+    addLog('发现 ' + d.total + ' 部未覆盖', 'w');
+  });
+}
+
+function generateRules() {
+  addLog('正在生成规则...', 'i');
+  api('/rules/generate', { method: 'POST' }).then(function(d) {
+    if (!d) return;
+    if (d.generated === 0) { addLog('无需生成新规则', 'ok'); return; }
+    addLog('生成 ' + d.generated + ' 条规则，新增 ' + d.added + ' 条', 'ok');
+    loadRules();
+    loadStatus();
+  });
+}
+
+function importRules() {
+  addLog('正在导入规则到 qB...', 'i');
+  api('/rules/import', { method: 'POST' }).then(function(d) {
+    if (d && d.ok) addLog('导入完成: 成功 ' + d.success + ', 失败 ' + d.failed, d.failed ? 'w' : 'ok');
+  });
+}
+
+function enableRules() {
+  addLog('正在启用规则...', 'i');
+  api('/qb/enable', { method: 'POST' }).then(function(d) {
+    if (d && d.ok) addLog('启用完成: ' + d.enabled + ' 条', 'ok');
+  });
+}
+
+function syncFromQB() {
+  addLog('正在从 qB 同步...', 'i');
+  api('/qb/sync', { method: 'POST' }).then(function(d) {
+    if (d && d.ok) { addLog('同步完成: ' + d.total + ' 条规则', 'ok'); loadRules(); }
+  });
+}
+
+function loadQBStatus() {
+  api('/qb/status').then(function(d) {
+    if (!d) return;
+    document.getElementById('qb-connected').textContent = d.connected ? '已连接' : '未连接';
+    document.getElementById('qb-connected').style.color = d.connected ? '#10b981' : '#ef4444';
+    document.getElementById('qb-rules').textContent = d.rule_count || '-';
+    document.getElementById('qb-torrents').textContent = d.torrent_count || '-';
+  });
+}
+
+function runAuto() {
+  var btn = document.getElementById('auto-btn');
+  if (!btn) btn = document.querySelector('[onclick="runAuto()"]');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> 运行中...';
+  for (var i = 1; i <= 4; i++) {
+    document.getElementById('auto-step-' + i).querySelector('.value').textContent = '\u25CB';
+    document.getElementById('auto-step-' + i).querySelector('.value').style.color = '#9ca3af';
+  }
+  addLog('开始一键自动化...', 'i');
+  var steps = ['auto-step-1', 'auto-step-2', 'auto-step-3', 'auto-step-4'];
+  var si = 0;
+  var timer = setInterval(function() {
+    if (si > 0) { var e = document.getElementById(steps[si - 1]).querySelector('.value'); e.textContent = '\u2714'; e.style.color = '#10b981'; }
+    if (si < 4) { var e2 = document.getElementById(steps[si]).querySelector('.value'); e2.textContent = '\u25CB'; e2.style.color = '#6366f1'; si++; }
+  }, 2000);
+  api('/auto/run', { method: 'POST' }).then(function(d) {
+    clearInterval(timer);
+    for (var i = 0; i < 4; i++) { var e = document.getElementById(steps[i]).querySelector('.value'); e.textContent = '\u2714'; e.style.color = '#10b981'; }
+    btn.disabled = false;
+    btn.innerHTML = '\u26A1 一键自动化';
+    if (d && d.ok) { addLog('自动化完成: RSS ' + d.rss_count + ' 条, 生成 ' + d.generated + ' 条, 启用 ' + d.enabled + ' 条', 'ok'); loadStatus(); loadRules(); }
+    else { addLog('自动化失败', 'e'); }
+  });
+}
+
+var _pathModalMode = '';
+var _selectedPath = '';
+
+function showPathModal(mode) {
+  _pathModalMode = mode;
+  _selectedPath = '';
+  var modal = document.getElementById('path-modal');
+  modal.classList.add('show');
+  document.getElementById('modal-old-path').textContent = document.getElementById('current-win-path').textContent;
+  var title = mode === 'migrate' ? '更改路径并迁移' : '更改路径（仅未来下载）';
+  document.getElementById('path-modal-title').textContent = title;
+  var btn = document.getElementById('path-confirm-btn');
+  btn.textContent = mode === 'migrate' ? '确认迁移' : '确认更改';
+  btn.disabled = true;
+  var input = document.getElementById('new-path-input');
+  input.value = '';
+  document.getElementById('path-input-btn').disabled = true;
+  document.getElementById('fs-browse-current').textContent = '点击选择磁盘';
+  document.getElementById('fs-browse-list').innerHTML = '';
+  browseFs('');
+}
+
+function closePathModal() {
+  document.getElementById('path-modal').classList.remove('show');
+}
+
+function onPathInputChange() {
+  var val = document.getElementById('new-path-input').value.trim();
+  document.getElementById('path-input-btn').disabled = !val;
+}
+
+function onPathInputConfirm() {
+  var val = document.getElementById('new-path-input').value.trim();
+  if (!val) return;
+  _selectedPath = val;
+  doPathAction();
+}
+
+function browseFs(path) {
+  api('/fs/browse' + (path ? '?path=' + encodeURIComponent(path) : '')).then(function(d) {
+    if (!d) return;
+    document.getElementById('fs-browse-current').textContent = d.current || '点击选择磁盘';
+    var el = document.getElementById('fs-browse-list');
+    if (!d.dirs || !d.dirs.length) {
+      el.innerHTML = '<div style="padding:12px;color:#9ca3af;text-align:center">' + (d.error || '此目录下无子文件夹') + '</div>';
+      if (d.current) {
+        _selectedPath = d.current;
+        document.getElementById('path-confirm-btn').disabled = false;
+        document.getElementById('new-path-input').value = d.current;
+      }
+      return;
+    }
+    var html = '';
+    d.dirs.forEach(function(item) {
+      var sp = item.path.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+      html += '<div class="ri" style="cursor:pointer;padding:8px 14px" onclick="browseFs(\'' + sp + '\')">';
+      html += '<span style="margin-right:8px">&#128193;</span>';
+      html += '<span style="font-size:13px">' + esc(item.name) + '</span>';
+      html += '<span style="margin-left:auto;font-size:11px;color:#9ca3af">' + esc(item.path) + '</span>';
+      html += '</div>';
+    });
+    el.innerHTML = html;
+    if (d.current) {
+      _selectedPath = d.current;
+      document.getElementById('path-confirm-btn').disabled = false;
+      document.getElementById('new-path-input').value = d.current;
+    }
+  });
+}
+
+function doPathAction() {
+  var inputVal = document.getElementById('new-path-input').value.trim();
+  var path = inputVal || _selectedPath;
+  if (!path) return;
+  var mode = _pathModalMode;
+  var oldPath = document.getElementById('modal-old-path').textContent;
+  closePathModal();
+  if (mode === 'migrate') {
+    if (!confirm('确认迁移？\n\n将把 "' + oldPath + '" 下的文件夹移动到 "' + path + '"，\n同时更新 qBittorrent 规则和种子路径。\n\n此操作不可撤销，是否继续？')) {
+      addLog('迁移已取消', 'w');
+      return;
+    }
+    addLog('正在迁移: ' + oldPath + ' -> ' + path, 'i');
+    api('/qb/migrate', { method: 'POST', body: { new_path: path } }).then(function(d) {
+      if (d && d.ok) {
+        var msg = '迁移完成';
+        if (d.files_moved !== undefined) msg += ' | 文件移动: ' + d.files_moved + ' 个';
+        if (d.files_failed) msg += ' | 移动失败: ' + d.files_failed + ' 个';
+        msg += ' | 规则更新: ' + d.rules_updated + ' | 种子迁移: ' + d.torrents_moved;
+        addLog(msg, d.files_failed ? 'w' : 'ok');
+        loadStatus();
+      } else {
+        addLog('迁移失败: ' + (d ? d.msg : '未知错误'), 'e');
+      }
+    });
+  } else {
+    addLog('正在更改路径: ' + path, 'i');
+    api('/qb/change-path', { method: 'POST', body: { new_path: path } }).then(function(d) {
+      if (d && d.ok) { addLog('路径已更改: ' + d.rules_updated + ' 条规则更新', 'ok'); loadStatus(); }
+      else { addLog('更改失败', 'e'); }
+    });
+  }
+}
+
+function addLog(msg, level) {
+  var el = document.getElementById('log-area');
+  if (!el) return;
+  var time = new Date().toLocaleTimeString('zh-CN', { hour12: false });
+  var c = { ok: 'ok', w: 'w', e: 'e', i: 'i' }[level] || 'i';
+  el.innerHTML += '<div><span class="t">[' + time + ']</span> <span class="' + c + '">' + msg + '</span></div>';
+  el.scrollTop = el.scrollHeight;
+}
+
+function clearLog() {
+  document.getElementById('log-area').innerHTML = '<div style="color:#6366f1">等待操作...</div>';
+}
+
+function esc(s) {
+  return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+function connectSSE() {
+  try {
+    var es = new EventSource('/api/logs/stream');
+    es.addEventListener('log', function(e) {
+      var d = JSON.parse(e.data);
+      addLog(d.msg, d.level === 'info' ? 'i' : d.level);
+    });
+    es.onerror = function() {
+      es.close();
+      setTimeout(connectSSE, 3000);
+    };
+  } catch (e) {
+    setTimeout(connectSSE, 3000);
+  }
+}
+
+loadRules();
+loadStatus();
+loadConfig();
+connectSSE();
+
+function loadConfig() {
+  api('/config').then(function(d) {
+    if (!d) return;
+    var el = document.getElementById('config-fields');
+    var html = '';
+    d.fields.forEach(function(f) {
+      var val = d.values[f.key] || '';
+      html += '<div style="margin-bottom:12px">';
+      html += '<div style="font-size:13px;color:#374151;margin-bottom:4px;font-weight:500">' + esc(f.label) + '</div>';
+      html += '<input type="' + (f.type === 'password' ? 'password' : 'text') + '" id="cfg-' + f.key + '" value="' + esc(val) + '" style="width:100%;padding:8px 12px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;font-family:monospace;box-sizing:border-box">';
+      html += '</div>';
+    });
+    el.innerHTML = html;
+  });
+}
+
+function saveConfig() {
+  var fields = ['RSS_URL', 'QB_BASE_URL', 'QB_USERNAME', 'QB_PASSWORD', 'SAVE_PATH_WIN', 'DEFAULT_MUST_NOT'];
+  var updates = {};
+  fields.forEach(function(key) {
+    var el = document.getElementById('cfg-' + key);
+    if (el) updates[key] = el.value;
+  });
+  api('/config', { method: 'POST', body: { updates: updates } }).then(function(d) {
+    if (d && d.ok) {
+      addLog('Config updated: ' + d.updated.join(', '), 'ok');
+      loadStatus();
+    } else {
+      addLog('Config update failed', 'e');
+    }
+  });
+}
+
+</script>
+</body>
+</html>
