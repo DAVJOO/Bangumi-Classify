@@ -5,6 +5,36 @@ import urllib.request
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass, field
 from config import RSS_URL
+import html as html_mod
+import re as _re
+import urllib.request as _urllib_req
+
+CanonicalTitleCache = {}
+
+def fetch_canonical_title(episode_url: str) -> str:
+    """Fetch the official anime title from a Mikan episode page."""
+    if not episode_url:
+        return ""
+    if episode_url in CanonicalTitleCache:
+        return CanonicalTitleCache[episode_url]
+    try:
+        req = _urllib_req.Request(episode_url, headers={"User-Agent": "BangumiTool/1.0"})
+        with _urllib_req.urlopen(req, timeout=15) as resp:
+            page = resp.read().decode("utf-8", errors="ignore")
+        m = _re.search(r'class="bangumi-title"[^>]*>.*?<a[^>]*>(.*?)</a>', page, _re.DOTALL)
+        if m:
+            raw = m.group(1)
+            raw = _re.sub(r'<[^>]+>', '', raw)
+            raw = html_mod.unescape(raw)
+            raw = _re.sub(r'\s+', ' ', raw).strip()
+            CanonicalTitleCache[episode_url] = raw
+            return raw
+    except Exception:
+        pass
+    CanonicalTitleCache[episode_url] = ""
+    return ""
+
+
 
 
 @dataclass

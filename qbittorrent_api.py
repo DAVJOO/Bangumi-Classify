@@ -1,4 +1,4 @@
-﻿import os
+import os
 """qBittorrent WebUI API 交互模块"""
 
 import json
@@ -128,11 +128,27 @@ class QBittorrentClient:
             print(f"[qB] 删除规则失败 [{rule_name}]: {e}")
             return False
 
+    def clear_all_rules(self) -> int:
+        """Delete all existing RSS rules from qBittorrent. Returns count deleted."""
+        rules = self.get_rules()
+        if not rules or not isinstance(rules, dict):
+            return 0
+        count = 0
+        for name in rules:
+            if self.delete_rule(name):
+                count += 1
+        return count
+
     def import_rules(self, rules: dict) -> dict:
         """
-        批量导入规则到 qBittorrent。
-        返回 {"success": [...], "failed": [...]}
+        Delete all old rules then import new ones to qBittorrent.
+        Returns {"success": [...], "failed": [...]}
         """
+        # Step 1: Clear all existing rules
+        deleted = self.clear_all_rules()
+        print(f"[qB] Cleared {deleted} old rules")
+
+        # Step 2: Import new rules
         results = {"success": [], "failed": []}
         for rule_name, rule_def in rules.items():
             ok = self.set_rule(rule_name, rule_def)
@@ -144,29 +160,74 @@ class QBittorrentClient:
 
     # ── RSS 操作 ─────────────────────────────────────────
 
-    def refresh_rss(self, item_path: str = "") -> bool:
-        """刷新 RSS 源。若 item_path 为空，先查询 RSS 树获取实际 feed 路径再逐个刷新。"""
-        if item_path:
-            return self._refresh_single(item_path)
 
-        # 查询 RSS 树，获取所有 feed 路径
+    def _get_feed_url(self, rss_tree: dict, target_path: str) -> str:
+        """Get the URL for a given RSS feed path."""
+        parts = target_path.strip("/").split("/")
+        current = rss_tree
+        for part in parts:
+            if part in current and isinstance(current[part], dict):
+                if "url" in current[part]:
+                    return current[part]["url"]
+                current = current[part].get("children", current[part])
+        return ""
+
+    def _remove_rss_item(self, item_path: str) -> bool:
+        """Remove an RSS feed or folder by path."""
+        data = urllib.parse.urlencode({"path": item_path}).encode("utf-8")
+        req = self._build_request("/api/v2/rss/removeItem", data, "POST")
+        try:
+            _urlopen_bypass_proxy(req, timeout=30)
+            return True
+        except Exception as e:
+            print(f"[qB] Failed to remove RSS item [{item_path}]: {e}")
+            return False
+
+    def _add_rss_feed(self, url: str, path: str = "") -> bool:
+        """Add an RSS feed to qBittorrent."""
+        params = {"url": url}
+        if path:
+            params["path"] = path
+        data = urllib.parse.urlencode(params).encode("utf-8")
+        req = self._build_request(QB_API["rss_add_feed"], data, "POST")
+        try:
+            _urlopen_bypass_proxy(req, timeout=30)
+            return True
+        except Exception as e:
+            print(f"[qB] Failed to add RSS feed: {e}")
+            return False
+
+    def refresh_rss(self, item_path: str = "") -> bool:
+        """Delete and re-add RSS feeds to force fresh data, then refresh."""
+        import time as _time
+
         rss_items = self.get_rss_items(with_data=False)
         if not rss_items:
-            print("[qB] 无法获取 RSS 树，尝试用空路径刷新")
-            return self._refresh_single("")
+            print("[qB] No RSS tree found, adding fresh feed")
+            return self._add_rss_feed(RSS_URL, "Bangumi")
 
         feed_paths = self._collect_feed_paths(rss_items)
         if not feed_paths:
-            print("[qB] RSS 树为空，无 feed 可刷新")
-            return False
+            print("[qB] RSS tree empty, adding fresh feed")
+            return self._add_rss_feed(RSS_URL, "Bangumi")
 
-        print(f"[qB] 发现 {len(feed_paths)} 个 RSS feed，正在逐个刷新...")
-        ok_count = 0
+        print(f"[qB] Re-adding {len(feed_paths)} RSS feeds for fresh data...")
         for path in feed_paths:
-            if self._refresh_single(path):
-                ok_count += 1
-        print(f"[qB] 刷新完成：{ok_count}/{len(feed_paths)} 成功")
-        return ok_count > 0
+            # Get the URL before deleting
+            feed_url = self._get_feed_url(rss_items, path)
+            # Delete old feed
+            self._remove_rss_item(path)
+            _time.sleep(0.5)
+            # Re-add with same URL
+            if feed_url:
+                self._add_rss_feed(feed_url, path)
+            _time.sleep(1)
+
+        # Final refresh
+        for path in self._collect_feed_paths(self.get_rss_items(with_data=False) or {}):
+            self._refresh_single(path)
+        print("[qB] RSS refresh complete")
+        return True
 
     def _refresh_single(self, item_path: str) -> bool:
         """刷新单个 RSS feed。"""

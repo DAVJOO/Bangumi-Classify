@@ -16,8 +16,11 @@ def generate_rule(uncovered: UncoveredItem) -> tuple[str, dict]:
     source = uncovered.source
     rule_name = f"{anime} {source}"
 
-    escaped_anime = _flexible_escape(uncovered.anime_name)
+    # Use raw_anime_name (from RSS title) for regex matching, not canonical name
+    escaped_anime = _flexible_escape(uncovered.raw_anime_name)
     escaped_source = _flexible_escape(source)
+    # Use lookaheads: both anime name and source must appear in the title.
+    # This works regardless of whether source is before or after the anime name.
     must_contain = f"(?=.*{escaped_anime})(?=.*{escaped_source})"
 
     must_not = DEFAULT_MUST_NOT
@@ -31,7 +34,7 @@ def generate_rule(uncovered: UncoveredItem) -> tuple[str, dict]:
         ("addPaused", True),
         ("affectedFeeds", [RSS_URL]),
         ("assignedCategory", ""),
-        ("enabled", False),
+        ("enabled", True),
         ("episodeFilter", ""),
         ("ignoreDays", 0),
         ("lastMatch", None),
@@ -122,6 +125,5 @@ def print_generation_report(rules: OrderedDict):
 def _flexible_escape(text: str) -> str:
     """转义正则特殊字符，但对空白做灵活化处理。"""
     escaped = re.escape(text)
-    escaped = re.sub(r"(?:\\ )+", r"[^\\w]*?", escaped)
-    escaped = re.sub(r"(?:\\s)+", r"[^\\w]*?", escaped)
+    escaped = re.sub(r"(?:\\ )+", r"\\s*?", escaped)
     return escaped

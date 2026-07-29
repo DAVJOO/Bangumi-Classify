@@ -2,7 +2,7 @@
 
 import re
 from dataclasses import dataclass
-from rss_parser import RSSItem, extract_anime_name, extract_episode
+from rss_parser import RSSItem, extract_anime_name, extract_episode, fetch_canonical_title
 from utils import split_must_not, normalize_name
 
 
@@ -24,6 +24,7 @@ class MatchResult:
 class UncoveredItem:
     """RSS 中未被规则覆盖的条目"""
     anime_name: str
+    raw_anime_name: str   # name parsed from RSS title (for regex)
     source: str
     titles: list[str]
     episodes: set[str]
@@ -125,7 +126,9 @@ def find_uncovered(items: list[RSSItem], rules: dict) -> list[UncoveredItem]:
     groups: dict[tuple[str, str], UncoveredItem] = {}
 
     for item in items:
-        anime = extract_anime_name(item.title)
+        canonical = fetch_canonical_title(item.link) if item.link else ""
+        raw_anime = extract_anime_name(item.title)
+        anime = canonical if canonical else raw_anime
         if not anime:
             continue
 
@@ -136,6 +139,7 @@ def find_uncovered(items: list[RSSItem], rules: dict) -> list[UncoveredItem]:
         if key not in groups:
             groups[key] = UncoveredItem(
                 anime_name=anime,
+                raw_anime_name=raw_anime if raw_anime else anime,
                 source=source,
                 titles=[],
                 episodes=set(),
