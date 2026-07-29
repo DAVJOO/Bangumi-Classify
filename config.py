@@ -39,6 +39,14 @@ FIXED_TRANSLATIONS = {
 # ── 默认排除词（各规则共用的） ──────────────────────────
 DEFAULT_MUST_NOT = "720|ABEMA"
 
+
+# ?? LLM 解析器配置 ??????????????????????????????????????
+LLM_ENABLED = False                # 是否启用 LLM 解析器
+LLM_API_KEY = ""                   # OpenAI 兼容 API Key
+LLM_BASE_URL = "https://api.openai.com/v1"  # API Base URL
+LLM_MODEL = "gpt-4o-mini"          # 模型名称
+LLM_MODE = "fallback"              # fallback = 正则优先，LLM失败再用；primary = LLM优先
+
 # ── qB API 路径 ─────────────────────────────────────────
 QB_API = {
     "login":    "/api/v2/auth/login",

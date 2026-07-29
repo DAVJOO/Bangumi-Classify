@@ -125,11 +125,16 @@ def find_uncovered(items: list[RSSItem], rules: dict) -> list[UncoveredItem]:
     from utils import extract_source_suffix
     groups: dict[tuple[str, str], UncoveredItem] = {}
 
+    # Collect titles that failed regex parsing for LLM fallback
+    failed_titles = []
+    failed_items = []
     for item in items:
         canonical = fetch_canonical_title(item.link) if item.link else ""
         raw_anime = extract_anime_name(item.title)
         anime = canonical if canonical else raw_anime
         if not anime:
+            failed_titles.append(item.title)
+            failed_items.append(item)
             continue
 
         source = extract_source_suffix(item.title)
@@ -147,6 +152,33 @@ def find_uncovered(items: list[RSSItem], rules: dict) -> list[UncoveredItem]:
         groups[key].titles.append(item.title)
         if ep:
             groups[key].episodes.add(ep)
+
+    # LLM fallback: batch parse titles that regex failed on
+    if failed_titles:
+        from rss_parser import get_llm_config, extract_metadata_with_llm
+        llm_config = get_llm_config()
+        if llm_config.get("enabled") and llm_config.get("api_key"):
+            llm_results = extract_metadata_with_llm(failed_titles)
+            for item in failed_items:
+                llm_data = llm_results.get(item.title)
+                if not llm_data or not llm_data.get("anime_name"):
+                    continue
+                anime = llm_data["anime_name"]
+                raw_anime = anime
+                source = llm_data.get("source", "") or extract_source_suffix(item.title)
+                ep = llm_data.get("episode", "") or extract_episode(item.title)
+                key = (anime, source)
+                if key not in groups:
+                    groups[key] = UncoveredItem(
+                        anime_name=anime,
+                        raw_anime_name=raw_anime,
+                        source=source,
+                        titles=[],
+                        episodes=set(),
+                    )
+                groups[key].titles.append(item.title)
+                if ep:
+                    groups[key].episodes.add(ep)
 
     # 过滤掉已被覆盖的
     uncovered = []

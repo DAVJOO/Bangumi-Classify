@@ -179,3 +179,54 @@ def extract_episode(title: str) -> str:
 def _get_text(el: ET.Element, tag: str) -> str:
     child = el.find(tag)
     return child.text.strip() if child is not None and child.text else ""
+
+
+# ?? LLM Fallback Parsing ??????????????????????????????????????
+
+def get_llm_config() -> dict:
+    """获取 LLM 配置。"""
+    try:
+        from config import LLM_API_KEY, LLM_BASE_URL, LLM_MODEL, LLM_ENABLED, LLM_MODE
+        return {
+            "enabled": LLM_ENABLED,
+            "api_key": LLM_API_KEY,
+            "base_url": LLM_BASE_URL,
+            "model": LLM_MODEL,
+            "mode": LLM_MODE,
+        }
+    except ImportError:
+        return {"enabled": False}
+
+
+def extract_anime_name_with_llm(title: str) -> str:
+    """
+    用 LLM 解析单个标题的番剧名。
+    当 regex 提取失败时调用。
+    """
+    config = get_llm_config()
+    if not config.get("enabled") or not config.get("api_key"):
+        return ""
+
+    from llm_parser import parse_single_title
+    result = parse_single_title(title, config)
+    if result and result.get("anime_name"):
+        return result["anime_name"]
+    return ""
+
+
+def extract_metadata_with_llm(titles: list[str]) -> dict[str, dict]:
+    """
+    用 LLM 批量解析多个标题。
+    返回 {title: {"anime_name": ..., "source": ..., "episode": ...}}
+    """
+    config = get_llm_config()
+    if not config.get("enabled") or not config.get("api_key"):
+        return {}
+
+    from llm_parser import parse_titles_with_llm
+    results = parse_titles_with_llm(titles, config)
+    mapping = {}
+    for i, title in enumerate(titles):
+        if i < len(results) and results[i].get("anime_name"):
+            mapping[title] = results[i]
+    return mapping

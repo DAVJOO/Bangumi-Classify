@@ -78,6 +78,11 @@ CONFIG_FIELDS = [
     {"key": "QB_USERNAME", "label": "qB Username", "type": "text"},
     {"key": "QB_PASSWORD", "label": "qB Password", "type": "password"},
     {"key": "DEFAULT_MUST_NOT", "label": "默认排除词", "type": "text"},
+    {"key": "LLM_ENABLED", "label": "LLM 解析器 (开启/??)", "type": "text"},
+    {"key": "LLM_API_KEY", "label": "LLM API Key", "type": "password"},
+    {"key": "LLM_BASE_URL", "label": "LLM API URL", "type": "text"},
+    {"key": "LLM_MODEL", "label": "LLM 模型", "type": "text"},
+    {"key": "LLM_MODE", "label": "LLM 模式 (fallback/primary)", "type": "text"},
 ]
 
 @app.get("/api/config")
@@ -103,13 +108,21 @@ def update_config(body: dict):
     qt = chr(34)
     updated = []
     new_lines = []
+    # Boolean fields should not be quoted
+    bool_keys = {"LLM_ENABLED"}
+
     for line in lines:
         replaced = False
         for key, val in updates.items():
             if line.strip().startswith(key + " ="):
-                # Escape backslashes for Windows paths
-                escaped = val.replace(bs, bs + bs)
-                new_lines.append(key + " = " + qt + escaped + qt + chr(10))
+                if key in bool_keys:
+                    # Write as Python boolean
+                    bool_val = "True" if val.lower() in ("true", "1", "yes", "开") else "False"
+                    new_lines.append(key + " = " + bool_val + chr(10))
+                else:
+                    # Escape backslashes for Windows paths
+                    escaped = val.replace(bs, bs + bs)
+                    new_lines.append(key + " = " + qt + escaped + qt + chr(10))
                 replaced = True
                 updated.append(key)
                 break
@@ -166,6 +179,67 @@ def toggle_rule(name: str):
     save_rules(rules)
     return {"name": name, "enabled": not current}
 
+
+@app.post("/api/rules/rename")
+def rename_rule(body: dict):
+    old_name = body.get("old_name", "").strip()
+    new_name = body.get("new_name", "").strip()
+    if not old_name or not new_name:
+        raise HTTPException(400, "old_name and new_name required")
+    if old_name == new_name:
+        return {"ok": True, "msg": "no change"}
+
+    from utils import load_rules, save_rules
+    rules = load_rules()
+    if old_name not in rules:
+        raise HTTPException(404, "Rule not found: " + old_name)
+    if new_name in rules:
+        raise HTTPException(409, "Target name already exists: " + new_name)
+
+    # 1. Rename in rules.json
+    data = rules.pop(old_name)
+    rules[new_name] = data
+    save_rules(rules)
+
+    # 2. Rename folder on disk
+    old_save = data.get("savePath", "")
+    folder_moved = False
+    if old_save:
+        # Normalize: convert forward slashes to backslashes for Windows ops
+        old_save_win = old_save.replace("/", chr(92))
+        if os.path.isdir(old_save_win):
+            parent_win = os.path.dirname(old_save_win)
+            new_folder_win = os.path.join(parent_win, new_name)
+            if not os.path.exists(new_folder_win):
+                try:
+                    os.rename(old_save_win, new_folder_win)
+                    folder_moved = True
+                except Exception as e:
+                    log("Folder rename failed: " + str(e), "warn")
+            else:
+                log("Target folder already exists, skip move", "warn")
+        # Always update savePath to match new folder name (even if folder didn't exist)
+        if old_save:
+            # Build new savePath: replace trailing folder name
+            last_sep = max(old_save.rfind("/"), old_save.rfind(chr(92)))
+            if last_sep > 0:
+                new_save = old_save[:last_sep + 1] + new_name
+                data["savePath"] = new_save
+                rules[new_name] = data
+                save_rules(rules)
+
+    # 3. Update qBittorrent: delete old rule, create new rule
+    client = get_client()
+    qb_ok = False
+    if client.login():
+        client.delete_rule(old_name)
+        qb_ok = client.set_rule(new_name, data)
+        if data.get("enabled", True):
+            client.enable_rules([new_name])
+
+    log("Renamed: " + old_name + " -> " + new_name, "ok")
+    return {"ok": True, "old_name": old_name, "new_name": new_name, "folder_moved": folder_moved, "qb_updated": qb_ok}
+
 @app.delete("/api/rules/{name}")
 def delete_rule(name: str):
     from utils import load_rules, save_rules
@@ -174,7 +248,37 @@ def delete_rule(name: str):
         raise HTTPException(404, "Rule not found")
     del rules[name]
     save_rules(rules)
+    # Also delete from qBittorrent
+    client = get_client()
+    if client.login():
+        client.delete_rule(name)
+    log("Deleted rule: " + name, "ok")
     return {"ok": True}
+
+
+@app.post("/api/rules/batch-delete")
+def batch_delete_rules(body: dict):
+    names = body.get("names", [])
+    if not names:
+        raise HTTPException(400, "No names provided")
+    from utils import load_rules, save_rules
+    rules = load_rules()
+    deleted = []
+    failed = []
+    client = get_client()
+    qb_ok = client.login()
+    for name in names:
+        if name in rules:
+            del rules[name]
+            deleted.append(name)
+            # Also delete from qBittorrent
+            if qb_ok:
+                client.delete_rule(name)
+        else:
+            failed.append(name)
+    save_rules(rules)
+    log("Batch deleted: " + str(len(deleted)) + " rules", "ok")
+    return {"ok": True, "deleted": deleted, "failed": failed}
 
 # -- API: RSS --
 @app.post("/api/rss/refresh")
