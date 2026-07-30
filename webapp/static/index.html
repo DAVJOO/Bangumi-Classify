@@ -530,12 +530,14 @@ function doPathAction() {
 }
 
 function addLog(msg, level) {
-  var el = document.getElementById('log-area');
-  if (!el) return;
   var time = new Date().toLocaleTimeString('zh-CN', { hour12: false });
   var c = { ok: 'ok', w: 'w', e: 'e', i: 'i' }[level] || 'i';
-  el.innerHTML += '<div><span class="t">[' + time + ']</span> <span class="' + c + '">' + msg + '</span></div>';
-  el.scrollTop = el.scrollHeight;
+  var html = '<div><span class="t">[' + time + ']</span> <span class="' + c + '">' + msg + '</span></div>';
+  // Write to both log areas (RSS page and auto page)
+  ['log-area', 'auto-log'].forEach(function(id) {
+    var el = document.getElementById(id);
+    if (el) { el.innerHTML += html; el.scrollTop = el.scrollHeight; }
+  });
 }
 
 function clearLog() {
