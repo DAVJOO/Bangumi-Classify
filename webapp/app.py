@@ -166,25 +166,20 @@ def set_autostart(body: dict):
         app_dir = str(TOOL_DIR)
         app_py = os.path.join(app_dir, "webapp", "app.py")
 
-        # Create VBS script for silent startup
-        vbs_content = (
-            'Set WshShell = CreateObject("WScript.Shell")\n'
-            'WshShell.CurrentDir = "' + app_dir.replace('\', '\\') + '"\n'
-            'WshShell.Run """" + r"' + python_exe + '" + """ """" + r"' + app_py + '" + """", 0, False\n'
-        )
-        # Write with proper line endings
-        vbs_lines = [
-            'Set WshShell = CreateObject("WScript.Shell")',
-            'WshShell.CurrentDir = "' + app_dir.replace('\', '\\') + '"',
-            'WshShell.Run """" + r"' + python_exe + '" + """ """" + r"' + app_py + '" + """", 0, False',
-        ]
-
+        # Create VBS script for silent startup (no console window)
         try:
             startup_dir.mkdir(parents=True, exist_ok=True)
+            # VBS uses "" to escape a quote inside a quoted string
+            q = chr(34)
             with open(vbs_path, "w", encoding="utf-8") as f:
-                f.write("\n".join(vbs_lines) + "\n")
+                f.write('Set WshShell = CreateObject("WScript.Shell")\n')
+                f.write('WshShell.CurrentDir = "' + app_dir + '"\n')
+                f.write('WshShell.Run "' + q + q + python_exe + q + q + ' "' + q + q + app_py + q + q + ', 0, False\n')
             log(f"Auto-start enabled: {vbs_path}", "ok")
             return {"ok": True, "enabled": True}
+        except Exception as e:
+            log(f"Auto-start enable failed: {e}", "error")
+            return {"ok": False, "msg": str(e)}
         except Exception as e:
             log(f"Auto-start enable failed: {e}", "error")
             return {"ok": False, "msg": str(e)}
