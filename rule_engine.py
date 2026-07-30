@@ -2,7 +2,8 @@
 
 import re
 from dataclasses import dataclass
-from rss_parser import RSSItem, extract_anime_name, extract_episode, fetch_canonical_title
+from rss_parser import RSSItem, extract_anime_name, extract_episode, fetch_canonical_title, parse_rss_title
+from tokenizer import parse_title
 from utils import split_must_not, normalize_name
 
 

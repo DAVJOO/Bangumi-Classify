@@ -7,6 +7,7 @@ from config import (
     SAVE_PATH_WIN, SAVE_PATH_UNIX,
 )
 from rule_engine import UncoveredItem
+from tokenizer import parse_title
 from utils import normalize_name, build_save_path
 
 
@@ -16,11 +17,18 @@ def generate_rule(uncovered: UncoveredItem) -> tuple[str, dict]:
     source = uncovered.source
     rule_name = f"{anime} {source}"
 
-    # Use raw_anime_name (from RSS title) for regex matching, not canonical name
-    escaped_anime = _flexible_escape(uncovered.raw_anime_name)
+    # Use raw_anime_name for regex matching, with flexible escaping
+    # Try to get the best title from tokenizer (Chinese preferred)
+    from tokenizer import parse_title as _pt
+    _best_title = uncovered.raw_anime_name
+    if uncovered.titles:
+        _parsed = _pt(uncovered.titles[0])
+        if _parsed.primary_title:
+            _best_title = _parsed.primary_title
+
+    escaped_anime = _flexible_escape(_best_title)
     escaped_source = _flexible_escape(source)
     # Use lookaheads: both anime name and source must appear in the title.
-    # This works regardless of whether source is before or after the anime name.
     must_contain = f"(?=.*{escaped_anime})(?=.*{escaped_source})"
 
     must_not = DEFAULT_MUST_NOT
