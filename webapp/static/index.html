@@ -96,6 +96,15 @@ body{font-family:-apple-system,"Microsoft YaHei",sans-serif;background:#f0f2f5;c
 .toast.success{background:#10b981}
 .toast.error{background:#ef4444}
 .toast.info{background:#6366f1}
+
+.tag-input-wrap{display:flex;flex-wrap:wrap;gap:6px;padding:8px 12px;border:1px solid #d1d5db;border-radius:6px;min-height:38px;align-items:center;cursor:text;background:#fff}
+.tag-input-wrap:focus-within{border-color:#6366f1;box-shadow:0 0 0 2px rgba(99,102,241,.15)}
+.tag-item{display:inline-flex;align-items:center;gap:4px;padding:3px 10px;background:#ede9fe;color:#5b21b6;border-radius:20px;font-size:12px;font-weight:500;white-space:nowrap}
+.tag-item .tag-remove{cursor:pointer;font-size:14px;line-height:1;opacity:.6;transition:opacity .15s}
+.tag-item .tag-remove:hover{opacity:1}
+.tag-add-btn{padding:3px 10px;border:1px dashed #d1d5db;border-radius:20px;font-size:12px;color:#6b7280;cursor:pointer;transition:all .15s;background:transparent}
+.tag-add-btn:hover{border-color:#6366f1;color:#6366f1}
+
 </style>
 </head>
 <body>
@@ -578,6 +587,11 @@ function loadConfig() {
         llmHtml += '<div style="font-size:13px;color:#374151;margin-bottom:4px;font-weight:500">' + esc(f.label) + '</div>';
         llmHtml += '<input type="' + (f.type === 'password' ? 'password' : 'text') + '" id="cfg-' + f.key + '" value="' + esc(d.values[f.key] || '') + '" style="width:100%;padding:8px 12px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;font-family:monospace;box-sizing:border-box">';
         llmHtml += '</div>';
+      } else if (f.key === 'DEFAULT_MUST_NOT') {
+        html += '<div style="margin-bottom:12px">';
+        html += '<div style="font-size:13px;color:#374151;margin-bottom:4px;font-weight:500">' + esc(f.label) + '</div>';
+        html += '<div class="tag-input-wrap" id="must-not-tags" onclick="document.getElementById('must-not-input').focus()"></div>';
+        html += '</div>';
       } else {
         html += '<div style="margin-bottom:12px">';
         html += '<div style="font-size:13px;color:#374151;margin-bottom:4px;font-weight:500">' + esc(f.label) + '</div>';
@@ -590,6 +604,8 @@ function loadConfig() {
     var enabled = (d.values['LLM_ENABLED'] || '').toLowerCase() === 'true';
     document.getElementById('llm-toggle').checked = enabled;
     llmEl.style.display = enabled ? 'block' : 'none';
+    // Initialize must-not tags
+    initMustNotTags(d.values['DEFAULT_MUST_NOT'] || '720|ABEMA');
   });
 }
 
@@ -645,13 +661,52 @@ function updateSchedulerInterval() {
   var iv = parseInt(document.getElementById('scheduler-interval').value) || 30;
   if (en) api('/scheduler', { method: 'POST', body: { enable: true, interval: iv } }).then(function(d) { if (d && d.ok) loadScheduler(); });
 }
+var _mustNotTags = [];
+
+function initMustNotTags(val) {
+  _mustNotTags = val.split(/[|\s]+/).filter(function(t) { return t.trim(); });
+  renderMustNotTags();
+}
+
+function renderMustNotTags() {
+  var wrap = document.getElementById('must-not-tags');
+  if (!wrap) return;
+  var html = '';
+  _mustNotTags.forEach(function(tag, i) {
+    html += '<span class="tag-item">' + esc(tag) + ' <span class="tag-remove" onclick="removeMustNotTag(' + i + ')">&times;</span></span>';
+  });
+  html += '<input id="must-not-input" type="text" placeholder="添加..." style="border:none;outline:none;font-size:12px;min-width:60px;flex:1;padding:2px;background:transparent" onkeydown="onMustNotKeydown(event)">';
+  wrap.innerHTML = html;
+}
+
+function removeMustNotTag(i) {
+  _mustNotTags.splice(i, 1);
+  renderMustNotTags();
+}
+
+function onMustNotKeydown(e) {
+  if (e.key === 'Enter' || e.key === ',') {
+    e.preventDefault();
+    var input = e.target;
+    var val = input.value.trim().replace(/,/g, '');
+    if (val && _mustNotTags.indexOf(val) < 0) {
+      _mustNotTags.push(val);
+      renderMustNotTags();
+    }
+  } else if (e.key === 'Backspace' && !e.target.value && _mustNotTags.length > 0) {
+    _mustNotTags.pop();
+    renderMustNotTags();
+  }
+}
+
 function saveConfig() {
-  var fields = ['RSS_URL', 'QB_BASE_URL', 'QB_USERNAME', 'QB_PASSWORD', 'SAVE_PATH_WIN', 'DEFAULT_MUST_NOT', 'LLM_API_KEY', 'LLM_BASE_URL', 'LLM_MODEL', 'LLM_MODE'];
+  var fields = ['RSS_URL', 'QB_BASE_URL', 'QB_USERNAME', 'QB_PASSWORD', 'SAVE_PATH_WIN', 'LLM_API_KEY', 'LLM_BASE_URL', 'LLM_MODEL', 'LLM_MODE'];
   var updates = {};
   fields.forEach(function(key) {
     var el = document.getElementById('cfg-' + key);
     if (el) updates[key] = el.value;
   });
+  updates['DEFAULT_MUST_NOT'] = _mustNotTags.join('|');
   updates['LLM_ENABLED'] = document.getElementById('llm-toggle').checked ? 'True' : 'False';
   api('/config', { method: 'POST', body: { updates: updates } }).then(function(d) {
     if (d && d.ok) {
