@@ -135,7 +135,70 @@ def update_config(body: dict):
     log("Config updated: " + ", ".join(updated), "ok")
     return {"ok": True, "updated": updated}
 
-# -- API: Status --
+
+# -- API: Auto-start --
+
+AUTOSTART_VBS = "BangumiTool_AutoStart.vbs"
+
+def _get_startup_dir():
+    """Get the Windows Startup folder for the current user."""
+    return Path(os.environ.get("APPDATA", "")) / "Microsoft" / "Windows" / "Start Menu" / "Programs" / "Startup"
+
+def _get_autostart_vbs():
+    """Get the full path to the autostart VBS script."""
+    return _get_startup_dir() / AUTOSTART_VBS
+
+@app.get("/api/autostart")
+def get_autostart():
+    vbs_path = _get_autostart_vbs()
+    enabled = vbs_path.exists()
+    return {"enabled": enabled, "path": str(vbs_path)}
+
+@app.post("/api/autostart")
+def set_autostart(body: dict):
+    enable = body.get("enable", False)
+    vbs_path = _get_autostart_vbs()
+    startup_dir = _get_startup_dir()
+
+    if enable:
+        # Get paths
+        python_exe = sys.executable
+        app_dir = str(TOOL_DIR)
+        app_py = os.path.join(app_dir, "webapp", "app.py")
+
+        # Create VBS script for silent startup
+        vbs_content = (
+            'Set WshShell = CreateObject("WScript.Shell")\n'
+            'WshShell.CurrentDir = "' + app_dir.replace('\', '\\') + '"\n'
+            'WshShell.Run """" + r"' + python_exe + '" + """ """" + r"' + app_py + '" + """", 0, False\n'
+        )
+        # Write with proper line endings
+        vbs_lines = [
+            'Set WshShell = CreateObject("WScript.Shell")',
+            'WshShell.CurrentDir = "' + app_dir.replace('\', '\\') + '"',
+            'WshShell.Run """" + r"' + python_exe + '" + """ """" + r"' + app_py + '" + """", 0, False',
+        ]
+
+        try:
+            startup_dir.mkdir(parents=True, exist_ok=True)
+            with open(vbs_path, "w", encoding="utf-8") as f:
+                f.write("\n".join(vbs_lines) + "\n")
+            log(f"Auto-start enabled: {vbs_path}", "ok")
+            return {"ok": True, "enabled": True}
+        except Exception as e:
+            log(f"Auto-start enable failed: {e}", "error")
+            return {"ok": False, "msg": str(e)}
+    else:
+        # Remove VBS script
+        try:
+            if vbs_path.exists():
+                vbs_path.unlink()
+                log("Auto-start disabled", "ok")
+            return {"ok": True, "enabled": False}
+        except Exception as e:
+            log(f"Auto-start disable failed: {e}", "error")
+            return {"ok": False, "msg": str(e)}
+
 # -- API: Status --
 @app.get("/api/status")
 def get_status():

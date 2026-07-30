@@ -122,7 +122,7 @@ body{font-family:-apple-system,"Microsoft YaHei",sans-serif;background:#f0f2f5;c
 <div class="page" id="page-diff"><div class="panel"><div class="ph"><h3>差异检测</h3><button class="btn btn-s btn-sm" onclick="loadDiff()">检测差异</button></div><div id="diff-list"><div class="empty"><div class="icon">&#128269;</div><div>点击检测按钮开始</div></div></div></div></div>
 <div class="page" id="page-auto"><div class="panel"><div class="ph"><h3>一键自动化流程</h3><button class="btn btn-g" onclick="runAuto()" id="auto-btn">&#9889; 开始自动化</button></div><div style="padding:20px"><div style="display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:24px"><div class="sc" id="auto-step-1"><div class="label">1. 刷新 RSS</div><div class="value" style="font-size:20px;color:#9ca3af">&#9711;</div></div><div class="sc" id="auto-step-2"><div class="label">2. 检测差异</div><div class="value" style="font-size:20px;color:#9ca3af">&#9711;</div></div><div class="sc" id="auto-step-3"><div class="label">3. 生成规则</div><div class="value" style="font-size:20px;color:#9ca3af">&#9711;</div></div><div class="sc" id="auto-step-4"><div class="label">4. 导入并启用</div><div class="value" style="font-size:20px;color:#9ca3af">&#9711;</div></div></div><div class="log-area" id="auto-log"><div style="color:#6366f1">等待操作...</div></div></div></div></div>
 <div class="page" id="page-qb"><div class="stats"><div class="sc"><div class="label">连接状态</div><div class="value" id="qb-connected" style="font-size:20px">-</div></div><div class="sc"><div class="label">qB 规则数</div><div class="value b" id="qb-rules">-</div></div><div class="sc"><div class="label">种子数</div><div class="value g" id="qb-torrents">-</div></div><div class="sc"><div class="label">保存路径</div><div class="value" id="qb-path" style="font-size:14px;word-break:break-all">-</div></div></div><div class="panel"><div class="ph"><h3>操作</h3></div><div style="padding:20px;display:flex;gap:12px"><button class="btn btn-s" onclick="syncFromQB()">&#128260; 从 qB 同步规则</button><button class="btn btn-s" onclick="importRules()">&#128229; 导入规则到 qB</button><button class="btn btn-p" onclick="enableRules()">&#9654; 启用规则开始下载</button></div></div></div>
-<div class="page" id="page-settings"><div class="panel"><div class="ph"><h3>路径管理</h3></div><div style="padding:20px"><div style="margin-bottom:20px"><div style="font-size:13px;color:#6b7280;margin-bottom:6px">当前 Windows 路径</div><div id="current-win-path" style="font-size:14px;font-family:monospace;background:#f9fafb;padding:10px 14px;border-radius:8px;border:1px solid #e5e7eb">-</div></div><div style="display:flex;gap:12px"><button class="btn btn-s" onclick="showPathModal('change')">&#128193; 更改路径（仅未来下载）</button><button class="btn btn-p" onclick="showPathModal('migrate')">&#128193; 更改路径并迁移</button></div></div></div><div class="panel" style="margin-top:16px"><div class="ph"><h3>Config Settings</h3></div><div style="padding:20px"><div id="config-fields" style="font-size:13px;color:#6b7280">Loading...</div><div style="margin-top:20px;border-top:1px solid #e5e7eb;padding-top:16px"><div class="toggle-wrap"><label class="toggle"><input type="checkbox" id="llm-toggle" onchange="toggleLlmFields()"><span class="slider"></span></label><span class="toggle-label">LLM 解析器</span></div><div id="llm-fields"></div></div><div style="margin-top:14px"><button class="btn btn-p" onclick="saveConfig()">Save Config</button></div></div></div></div>
+<div class="page" id="page-settings"><div class="panel"><div class="ph"><h3>路径管理</h3></div><div style="padding:20px"><div style="margin-bottom:20px"><div style="font-size:13px;color:#6b7280;margin-bottom:6px">当前 Windows 路径</div><div id="current-win-path" style="font-size:14px;font-family:monospace;background:#f9fafb;padding:10px 14px;border-radius:8px;border:1px solid #e5e7eb">-</div></div><div style="display:flex;gap:12px"><button class="btn btn-s" onclick="showPathModal('change')">&#128193; 更改路径（仅未来下载）</button><button class="btn btn-p" onclick="showPathModal('migrate')">&#128193; 更改路径并迁移</button></div></div></div><div class="panel" style="margin-top:16px"><div class="ph"><h3>开机自启动</h3></div><div style="padding:20px"><div class="toggle-wrap"><label class="toggle"><input type="checkbox" id="autostart-toggle" onchange="toggleAutostart()"><span class="slider"></span></label><span class="toggle-label">开机自动启动 WebUI</span></div><div style="font-size:12px;color:#9ca3af;margin-top:-8px">开启后系统启动时会后台运行 WebUI，手动访问 http://localhost:8080</div></div></div><div class="panel" style="margin-top:16px"><div class="ph"><h3>Config Settings</h3></div><div style="padding:20px"><div id="config-fields" style="font-size:13px;color:#6b7280">Loading...</div><div style="margin-top:20px;border-top:1px solid #e5e7eb;padding-top:16px"><div class="toggle-wrap"><label class="toggle"><input type="checkbox" id="llm-toggle" onchange="toggleLlmFields()"><span class="slider"></span></label><span class="toggle-label">LLM 解析器</span></div><div id="llm-fields"></div></div><div style="margin-top:14px"><button class="btn btn-p" onclick="saveConfig()">Save Config</button></div></div></div></div>
 </div>
 </div>
 <div class="modal-overlay" id="path-modal"><div class="modal" style="width:640px"><h3 id="path-modal-title">更改路径</h3><div style="font-size:13px;color:#6b7280;margin-bottom:6px">当前路径</div><div id="modal-old-path" style="font-size:13px;font-family:monospace;margin-bottom:14px;padding:8px 12px;background:#f9fafb;border-radius:6px;border:1px solid #e5e7eb">-</div><div style="display:flex;gap:8px;margin-bottom:12px"><input id="new-path-input" type="text" placeholder="输入新路径或点击下方浏览" style="flex:1;padding:8px 12px;border:1px solid #d1d5db;border-radius:6px;font-size:13px"></div><div id="fs-browse-list" style="max-height:300px;overflow-y:auto;border:1px solid #e5e7eb;border-radius:8px;margin-bottom:12px"></div><div class="btns"><button class="btn btn-s" onclick="closePathModal()">取消</button><button class="btn btn-p" id="path-confirm-btn" onclick="doPathAction()" disabled>确认</button></div></div></div>
@@ -317,6 +317,7 @@ function syncFromQB() {
   addLog('\u6b63\u5728\u4ece qB \u540c\u6b65...', 'i');
   api('/qb/sync', { method: 'POST' }).then(function(d) {
     if (d && d.ok) { addLog('\u540c\u6b65\u5b8c\u6210: ' + d.total + ' \u6761\u89c4\u5219', 'ok'); loadRules(); }
+      showToast('\u540c\u6b65\u6210\u529f', 'success');
   });
 }
 
@@ -436,6 +437,7 @@ function doRename() {
       if (d.folder_moved) msg += ' | \u6587\u4ef6\u5939\u5df2\u8fc1\u79fb';
       if (d.qb_updated) msg += ' | qB \u5df2\u66f4\u65b0';
       addLog(msg, 'ok');
+      showToast('\u91cd\u547d\u540d\u6210\u529f', 'success');
       loadRules();
     } else {
       addLog('\u91cd\u547d\u540d\u5931\u8d25: ' + (d ? d.msg : '\u672a\u77e5\u9519\u8bef'), 'e');
@@ -596,6 +598,26 @@ function toggleLlmFields() {
   if (el) el.value = on ? 'True' : 'False';
 }
 
+function loadAutostart() {
+  api('/autostart').then(function(d) {
+    if (!d) return;
+    document.getElementById('autostart-toggle').checked = d.enabled;
+  });
+}
+
+function toggleAutostart() {
+  var enabled = document.getElementById('autostart-toggle').checked;
+  api('/autostart', { method: 'POST', body: { enable: enabled } }).then(function(d) {
+    if (d && d.ok) {
+      showToast(enabled ? 'Auto-start enabled' : 'Auto-start disabled', 'success');
+      loadAutostart();
+    } else {
+      showToast('Failed: ' + (d ? d.msg : 'Unknown error'), 'error');
+      loadAutostart();
+    }
+  });
+}
+
 function saveConfig() {
   var fields = ['RSS_URL', 'QB_BASE_URL', 'QB_USERNAME', 'QB_PASSWORD', 'SAVE_PATH_WIN', 'DEFAULT_MUST_NOT', 'LLM_API_KEY', 'LLM_BASE_URL', 'LLM_MODEL', 'LLM_MODE'];
   var updates = {};
@@ -618,6 +640,7 @@ function saveConfig() {
 loadRules();
 loadStatus();
 loadConfig();
+loadAutostart();
 connectSSE();
 </script>
 </body>
