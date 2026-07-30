@@ -15,7 +15,8 @@ def generate_rule(uncovered: UncoveredItem) -> tuple[str, dict]:
     """为一个未覆盖番剧生成一条规则。返回 (rule_name, rule_data)。"""
     anime = normalize_name(uncovered.anime_name)
     source = uncovered.source
-    rule_name = f"{anime} {source}"
+    has_source = source and source != "Unknown"
+    rule_name = f"{anime} {source}" if has_source else anime
 
     # Use raw_anime_name for regex matching, with flexible escaping
     # Try to get the best title from tokenizer (Chinese preferred)
@@ -27,9 +28,12 @@ def generate_rule(uncovered: UncoveredItem) -> tuple[str, dict]:
             _best_title = _parsed.primary_title
 
     escaped_anime = _flexible_escape(_best_title)
-    escaped_source = _flexible_escape(source)
-    # Use lookaheads: both anime name and source must appear in the title.
-    must_contain = f"(?=.*{escaped_anime})(?=.*{escaped_source})"
+    # Only add source lookahead if we have a real source
+    if has_source:
+        escaped_source = _flexible_escape(source)
+        must_contain = f"(?=.*{escaped_anime})(?=.*{escaped_source})"
+    else:
+        must_contain = f"(?=.*{escaped_anime})"
 
     must_not = DEFAULT_MUST_NOT
     if source == "ABEMA":
