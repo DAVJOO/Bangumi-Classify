@@ -21,20 +21,20 @@ def generate_rule(uncovered: UncoveredItem) -> tuple[str, dict]:
     # Use raw_anime_name for regex matching, with flexible escaping
     # Try to get the best title from tokenizer (Chinese preferred)
     from tokenizer import parse_title as _pt
-    _best_title = uncovered.raw_anime_name
-    if uncovered.titles:
+    _best_title = uncovered.anime_name  # Use canonical name from Mikan
+    # Only use tokenizer as fallback if canonical name is empty
+    if not _best_title and uncovered.titles:
         _parsed = _pt(uncovered.titles[0])
         if _parsed.primary_title:
             _best_title = _parsed.primary_title
 
-    escaped_anime = _flexible_escape(_best_title)
-    # Only add source lookahead if we have a real source
+    # Use tokenizer name (from RSS title) for regex matching
+    escaped_anime = _flexible_escape(uncovered.raw_anime_name)
     if has_source:
         escaped_source = _flexible_escape(source)
         must_contain = f"(?=.*{escaped_anime})(?=.*{escaped_source})"
     else:
         must_contain = f"(?=.*{escaped_anime})"
-
     must_not = DEFAULT_MUST_NOT
     if source == "ABEMA":
         tokens = [t for t in must_not.split("|") if t.strip() != "ABEMA"]
