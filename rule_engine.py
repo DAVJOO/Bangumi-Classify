@@ -138,7 +138,7 @@ def find_uncovered(items: list[RSSItem], rules: dict) -> list[UncoveredItem]:
             failed_items.append(item)
             continue
 
-        source = extract_source_suffix(item.title)
+        source = parse_title(item.title).source
         ep = extract_episode(item.title)
         key = (anime, source)
 
