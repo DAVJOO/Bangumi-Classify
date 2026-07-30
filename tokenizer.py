@@ -112,8 +112,8 @@ def parse_title(raw: str) -> ParsedTitle:
                 result.source = src
                 break
     if not result.source and result.group:
-        if _GROUP_NAMES.search(result.group):
-            result.source = result.group
+        # Use group name as source (covers unknown groups like Nix-Raws)
+        result.source = result.group
 
     clean = re.sub(r"\[[^\]]*\]", " ", norm_after_group)
     clean = re.sub(r"\([^\)]*\)", " ", clean)
