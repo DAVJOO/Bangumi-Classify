@@ -880,6 +880,7 @@ def print_main_menu():
     print_menu_item(7, "启用下载", "启用规则并开始自动下载")
     print_menu_item(8, "qB 状态", "查看 qBittorrent 规则、乱码检查")
     print_menu_item(9, "一键自动化", "识别差异→生成→导入→下载")
+    print_menu_item(10, "启动 WebUI", "在浏览器中打开 Web 控制台")
     print()
     print_menu_item(0, "从 qB 同步", "从 qBittorrent 同步规则到本地")
     print()
@@ -890,6 +891,20 @@ def print_main_menu():
 
 
 # ── 主循环 ──────────────────────────────────────────────
+
+def do_start_webui():
+    print("\n  \u6b63\u5728\u542f\u52a8 WebUI...\n")
+    print(f"  \u6d4f\u89c8\u5668\u8bbf\u95ee: {cyan('http://localhost:8080')}")
+    print(f"  \u6309 Ctrl+C \u505c\u6b62\u670d\u52a1\n")
+    try:
+        import uvicorn
+        from webapp.app import app
+        uvicorn.run(app, host="0.0.0.0", port=8080)
+    except KeyboardInterrupt:
+        print("\n  WebUI \u5df2\u505c\u6b62")
+    except Exception as e:
+        print(f"  \u542f\u52a8\u5931\u8d25: {e}")
+
 
 def main():
     while True:
@@ -942,7 +957,19 @@ def main():
         elif choice == 9:
             do_auto()
             pause()
+        elif choice == 10:
+            do_start_webui()
 
 
 if __name__ == "__main__":
-    main()
+    # exe: default WebUI; add --cli for terminal menu
+    if getattr(sys, "frozen", False):
+        if "--cli" in sys.argv:
+            main()
+        else:
+            do_start_webui()
+    else:
+        if "--webui" in sys.argv:
+            do_start_webui()
+        else:
+            main()
