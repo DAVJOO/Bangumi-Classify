@@ -29,6 +29,13 @@ def log(msg: str, level: str = "info"):
     entry = {"time": time.strftime("%H:%M:%S"), "msg": msg, "level": level}
     _log_queue.put(entry)
 
+# -- Scheduler state --
+_scheduler_enabled = False
+_scheduler_interval = 30
+_scheduler_timer = None
+_scheduler_last_run = None
+_scheduler_running = False
+
 # -- Lazy imports (deferred to avoid circular) --
 _client = None
 
@@ -834,6 +841,95 @@ def auto_run():
         "total_rules": len(all_rules),
         "enabled": len(enabled),
     }
+
+def _scheduler_tick():
+    global _scheduler_timer, _scheduler_last_run, _scheduler_running
+    if not _scheduler_enabled:
+        return
+    _scheduler_running = True
+    _scheduler_last_run = __import__("time").strftime("%Y-%m-%d %H:%M:%S")
+    try:
+        log("Scheduled check started", "info")
+        from utils import load_rules, save_rules
+        from rss_parser import fetch_rss
+        from rule_engine import find_uncovered
+        from rule_generator import generate_rules_for_uncovered
+        config = import_config()
+        client = get_client()
+        if not client.login():
+            log("Scheduled check: qB connection failed", "error")
+            return
+        client.refresh_rss()
+        rules = load_rules()
+        items = fetch_rss()
+        uncovered = find_uncovered(items, rules)
+        if not uncovered:
+            log("Scheduled check: no new anime found", "info")
+            return
+        user_selected = {}
+        for u in uncovered:
+            from utils import normalize_name
+            anime = normalize_name(u.anime_name)
+            user_selected.setdefault(anime, []).append(u.source)
+        new_rules = generate_rules_for_uncovered(uncovered, user_selected)
+        for name, data in new_rules.items():
+            if name not in rules:
+                rules[name] = data
+        save_rules(rules)
+        client.ensure_rss_feed(config.RSS_URL, "Bangumi")
+        all_rules = load_rules()
+        client.import_rules(all_rules)
+        enabled = {n: d for n, d in all_rules.items() if d.get("enabled", True)}
+        client.enable_rules(list(enabled.keys()))
+        log(f"Scheduled: generated {len(new_rules)}, enabled {len(enabled)} rules", "ok")
+    except Exception as e:
+        log(f"Scheduled check error: {e}", "error")
+    finally:
+        _scheduler_running = False
+        if _scheduler_enabled:
+            _scheduler_timer = threading.Timer(_scheduler_interval * 60, _scheduler_tick)
+            _scheduler_timer.daemon = True
+            _scheduler_timer.start()
+
+
+def _start_scheduler():
+    global _scheduler_enabled, _scheduler_timer
+    _scheduler_enabled = True
+    log(f"Scheduler started (every {_scheduler_interval} min)", "info")
+    _scheduler_tick()
+
+
+def _stop_scheduler():
+    global _scheduler_enabled, _scheduler_timer
+    _scheduler_enabled = False
+    if _scheduler_timer:
+        _scheduler_timer.cancel()
+        _scheduler_timer = None
+    log("Scheduler stopped", "info")
+
+
+@app.get("/api/scheduler")
+def get_scheduler():
+    return {
+        "enabled": _scheduler_enabled,
+        "interval": _scheduler_interval,
+        "last_run": _scheduler_last_run,
+        "running": _scheduler_running,
+    }
+
+@app.post("/api/scheduler")
+def set_scheduler(body: dict):
+    global _scheduler_interval
+    enable = body.get("enable", False)
+    interval = body.get("interval", _scheduler_interval)
+    if isinstance(interval, (int, float)) and interval >= 1:
+        _scheduler_interval = int(interval)
+    if enable:
+        _start_scheduler()
+    else:
+        _stop_scheduler()
+    return {"ok": True, "enabled": _scheduler_enabled, "interval": _scheduler_interval}
+
 
 # -- SSE: Real-time Logs --
 @app.get("/api/logs/stream")
